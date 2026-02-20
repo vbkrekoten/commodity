@@ -1,0 +1,12 @@
+node_modules
+.pnpm-store
+.next
+dist
+coverage
+playwright-report
+test-results
+.env
+!apps/api/.env
+!apps/web/.env.local
+*.log
+apps/api/prisma/dev.db

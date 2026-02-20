@@ -1,0 +1,25 @@
+{
+  "base_url": "https://iss.moex.com/iss",
+  "date_from": "2026-01-01",
+  "date_to": "2026-01-31",
+  "main_share_board": "TQBR",
+  "share_type_rules": {
+    "include_name_contains": [
+      "обыкнов",
+      "привилег",
+      "common",
+      "preferred"
+    ],
+    "exclude_name_contains": [
+      "депозитар",
+      "depository",
+      "etf",
+      "exchange traded fund"
+    ]
+  },
+  "limits": {
+    "max_engines": null,
+    "max_markets_per_engine": null,
+    "max_boards_per_market": null
+  }
+}

@@ -1,0 +1,246 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  org_admin
+  trader
+  compliance
+  viewer
+}
+
+enum TicketStatus {
+  open
+  in_progress
+  resolved
+  closed
+}
+
+model User {
+  id               String          @id @default(cuid())
+  email            String          @unique
+  passwordHash     String
+  fullName         String
+  emailVerifiedAt  DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  memberships      OrgMembership[]
+  onboardingCases  OnboardingCase[]
+  apiKeys          ApiKey[]
+  ticketMessages   TicketMessage[]
+  tickets          Ticket[]
+  otcDeals         OtcDeal[]
+  auditLogs        AuditLog[]
+}
+
+model Organization {
+  id               String          @id @default(cuid())
+  name             String
+  inn              String?         @unique
+  status           String          @default("pending")
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  memberships      OrgMembership[]
+  onboardingCases  OnboardingCase[]
+  otcDeals         OtcDeal[]
+  tickets          Ticket[]
+  apiKeys          ApiKey[]
+}
+
+model OrgMembership {
+  id               String       @id @default(cuid())
+  userId           String
+  organizationId   String
+  role             Role
+  createdAt        DateTime     @default(now())
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+}
+
+model OnboardingCase {
+  id               String               @id @default(cuid())
+  organizationId   String
+  createdById      String
+  status           String               @default("draft")
+  checklist        Json
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  organization     Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy        User                 @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  documents        OnboardingDocument[]
+}
+
+model File {
+  id               String               @id @default(cuid())
+  bucket           String
+  objectKey        String
+  originalName     String
+  mimeType         String
+  size             Int
+  uploadedById     String?
+  createdAt        DateTime             @default(now())
+  onboardingDocs   OnboardingDocument[]
+  ticketMessages   TicketMessage[]
+}
+
+model OnboardingDocument {
+  id               String         @id @default(cuid())
+  onboardingCaseId String
+  fileId           String
+  type             String
+  status           String         @default("uploaded")
+  createdAt        DateTime       @default(now())
+  onboardingCase   OnboardingCase @relation(fields: [onboardingCaseId], references: [id], onDelete: Cascade)
+  file             File           @relation(fields: [fileId], references: [id], onDelete: Cascade)
+}
+
+model Market {
+  id               String         @id @default(cuid())
+  slug             String         @unique
+  title            String
+  description      String
+  tags             String[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  contractSpecs    ContractSpec[]
+  pricePoints      PricePoint[]
+  docs             Document[]
+}
+
+model ContractSpec {
+  id               String         @id @default(cuid())
+  marketId         String
+  version          String
+  params           Json
+  tariff           Decimal        @db.Decimal(12,2)
+  effectiveDate    DateTime
+  market           Market         @relation(fields: [marketId], references: [id], onDelete: Cascade)
+}
+
+model PricePoint {
+  id               String         @id @default(cuid())
+  marketId         String
+  date             DateTime
+  value            Decimal        @db.Decimal(12,2)
+  market           Market         @relation(fields: [marketId], references: [id], onDelete: Cascade)
+
+  @@index([marketId, date])
+}
+
+model Index {
+  id               String         @id @default(cuid())
+  slug             String         @unique
+  title            String
+  methodology      String
+  points           IndexPoint[]
+}
+
+model IndexPoint {
+  id               String         @id @default(cuid())
+  indexId          String
+  date             DateTime
+  value            Decimal        @db.Decimal(12,2)
+  index            Index          @relation(fields: [indexId], references: [id], onDelete: Cascade)
+
+  @@index([indexId, date])
+}
+
+model Document {
+  id               String         @id @default(cuid())
+  slug             String         @unique
+  title            String
+  category         String
+  version          String
+  effectiveDate    DateTime
+  tags             String[]
+  marketId         String?
+  fileUrl          String?
+  createdAt        DateTime       @default(now())
+  market           Market?        @relation(fields: [marketId], references: [id], onDelete: SetNull)
+}
+
+model NewsArticle {
+  id               String         @id @default(cuid())
+  slug             String         @unique
+  title            String
+  summary          String
+  body             String
+  tags             String[]
+  publishedAt      DateTime
+  createdAt        DateTime       @default(now())
+}
+
+model OtcDeal {
+  id               String         @id @default(cuid())
+  organizationId   String
+  createdById      String
+  marketSlug       String
+  volume           Decimal        @db.Decimal(12,2)
+  price            Decimal        @db.Decimal(12,2)
+  currency         String         @default("RUB")
+  dealDate         DateTime
+  comment          String?
+  createdAt        DateTime       @default(now())
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy        User           @relation(fields: [createdById], references: [id], onDelete: Cascade)
+}
+
+model Ticket {
+  id               String          @id @default(cuid())
+  organizationId   String
+  createdById      String
+  subject          String
+  category         String
+  status           TicketStatus    @default(open)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy        User            @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  messages         TicketMessage[]
+}
+
+model TicketMessage {
+  id               String          @id @default(cuid())
+  ticketId         String
+  authorId         String
+  message          String
+  fileId           String?
+  createdAt        DateTime        @default(now())
+  ticket           Ticket          @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author           User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  file             File?           @relation(fields: [fileId], references: [id], onDelete: SetNull)
+}
+
+model ApiKey {
+  id               String          @id @default(cuid())
+  organizationId   String
+  createdById      String
+  name             String
+  keyHash          String
+  scopes           String[]
+  revokedAt        DateTime?
+  createdAt        DateTime        @default(now())
+  organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy        User            @relation(fields: [createdById], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id               String          @id @default(cuid())
+  userId           String?
+  action           String
+  entityType       String
+  entityId         String?
+  payload          Json?
+  createdAt        DateTime        @default(now())
+  user             User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([action, createdAt])
+}
