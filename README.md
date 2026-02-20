@@ -56,6 +56,22 @@ pnpm db:seed
 - MinIO API: http://localhost:9000
 - MinIO Console: http://localhost:9001
 
+## Deploy to Render (internet access)
+1. Push repo to GitHub (already: `vbkrekoten/commodity`).
+2. In Render: `New +` -> `Blueprint` -> select repo.
+3. Render will read `/render.yaml` and create:
+   - `commodity-web`
+   - `commodity-api`
+   - `commodity-postgres`
+   - `commodity-redis`
+   - `commodity-minio` (private service)
+   - `commodity-mailhog` (private service)
+4. Set secrets in Render for both API/Web:
+   - `JWT_ACCESS_SECRET`
+   - `JWT_REFRESH_SECRET` (API only)
+5. After deploy run shell command for API service once:
+   - `pnpm --filter @apps/api prisma:seed`
+
 ## Demo accounts
 - `admin@example.com / Admin123!`
 - `owner@example.com / Admin123!`

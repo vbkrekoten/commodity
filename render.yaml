@@ -1,0 +1,107 @@
+services:
+  - type: redis
+    name: commodity-redis
+    ipAllowList: []
+
+  - type: pserv
+    name: commodity-mailhog
+    env: docker
+    dockerImage: mailhog/mailhog:latest
+    plan: starter
+    autoDeploy: false
+
+  - type: pserv
+    name: commodity-minio
+    env: docker
+    dockerImage: minio/minio:latest
+    disk:
+      name: minio-data
+      mountPath: /data
+      sizeGB: 5
+    envVars:
+      - key: MINIO_ROOT_USER
+        value: minioadmin
+      - key: MINIO_ROOT_PASSWORD
+        value: minioadmin
+    dockerCommand: server /data --console-address :9001
+    plan: starter
+    autoDeploy: false
+
+  - type: web
+    name: commodity-api
+    env: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    plan: starter
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_PORT
+        value: 10000
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: commodity-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: commodity-redis
+          property: connectionString
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: ACCESS_TOKEN_TTL
+        value: 15m
+      - key: REFRESH_TOKEN_TTL
+        value: 7d
+      - key: MINIO_ENDPOINT
+        fromService:
+          type: pserv
+          name: commodity-minio
+          property: host
+      - key: MINIO_PORT
+        value: 80
+      - key: MINIO_USE_SSL
+        value: false
+      - key: MINIO_ACCESS_KEY
+        value: minioadmin
+      - key: MINIO_SECRET_KEY
+        value: minioadmin
+      - key: MINIO_BUCKET
+        value: files
+      - key: MAIL_HOST
+        fromService:
+          type: pserv
+          name: commodity-mailhog
+          property: host
+      - key: MAIL_PORT
+        value: 1025
+      - key: MAIL_FROM
+        value: no-reply@exchange.local
+
+  - type: web
+    name: commodity-web
+    env: docker
+    dockerfilePath: ./apps/web/Dockerfile
+    dockerContext: .
+    plan: starter
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: NEXT_PUBLIC_APP_URL
+        value: https://commodity-web.onrender.com
+      - key: NEXT_PUBLIC_API_URL
+        value: https://commodity-api.onrender.com/api/v1
+      - key: JWT_ACCESS_SECRET
+        sync: false
+
+databases:
+  - name: commodity-postgres
+    plan: starter
